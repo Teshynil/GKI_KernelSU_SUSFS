@@ -196,7 +196,17 @@ jobs:
         else
           OS_PATCH_LEVEL_YM="$OS_PATCH_LEVEL_INPUT"
         fi
-        FIXED_BUILD_DATE="${OS_PATCH_LEVEL_YM}-05 04:20:00 UTC"
+        if [[ ! "$OS_PATCH_LEVEL_YM" =~ ^[0-9]{4}-[0-9]{2}$ ]]; then
+          OS_PATCH_LEVEL_YM="$(date -u +%Y-%m)"
+        fi
+        # If the GKI branch patch date is older than 60 days from the device ROM security patch
+        # (e.g. 2026-03 GKI branch on a 2026-08 ROM), ensure the build timestamp
+        # stays within the 90-day threshold (align to 2026-08 for modern Android 16).
+        BUILD_DATE_YM="$OS_PATCH_LEVEL_YM"
+        if [ "$OS_PATCH_LEVEL_YM" = "2026-03" ]; then
+          BUILD_DATE_YM="2026-08"
+        fi
+        FIXED_BUILD_DATE="${BUILD_DATE_YM}-05 04:20:00 UTC"
         SOURCE_DATE_EPOCH=$(date -u -d "$FIXED_BUILD_DATE" +%s)
         echo "SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH" >> $GITHUB_ENV
         KBUILD_TS=$(date -u -d @${SOURCE_DATE_EPOCH} '+%a %b %d %H:%M:%S UTC %Y')
@@ -206,6 +216,21 @@ jobs:
         echo "GIT_COMMITTER_DATE=${GIT_DATE}" >> $GITHUB_ENV
         echo "GIT_AUTHOR_DATE=${GIT_DATE}" >> $GITHUB_ENV
         echo "Build timestamp set to: $(date -u -d @${SOURCE_DATE_EPOCH} '+%Y-%m-%d %H:%M:%S UTC') (epoch: $SOURCE_DATE_EPOCH)"
+
+        # Definitively inject build timestamp into kernel source so that Kleaf/Bazel
+        # cannot force it to 1970-01-01 (reproducible build epoch 0).
+        for f in kernel/common/init/Makefile common/init/Makefile; do
+          if [ -f "$f" ] && grep -q '^build-timestamp =' "$f"; then
+            sed -i 's|^build-timestamp = .*|build-timestamp = '"${KBUILD_TS}"'|' "$f"
+            echo "Patched build-timestamp in $f to '${KBUILD_TS}'"
+          fi
+        done
+        for f in kernel/common/scripts/mkcompile_h common/scripts/mkcompile_h; do
+          if [ -f "$f" ]; then
+            sed -i "s|TIMESTAMP=\$KBUILD_BUILD_TIMESTAMP|TIMESTAMP=\"${KBUILD_TS}\"|g" "$f"
+            echo "Patched TIMESTAMP in $f to '${KBUILD_TS}'"
+          fi
+        done
 
     - name: Extract Sublevel and Set File Name
       id: extract

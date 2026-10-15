@@ -83,6 +83,10 @@ runs:
           fi
           tools/bazel build \
             --config=fast \
+            --action_env=KBUILD_BUILD_TIMESTAMP="${KBUILD_BUILD_TIMESTAMP}" \
+            --action_env=SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH}" \
+            --action_env=KBUILD_BUILD_USER="${KBUILD_BUILD_USER}" \
+            --action_env=KBUILD_BUILD_HOST="${KBUILD_BUILD_HOST}" \
             "${PAGE_SIZE_FLAGS[@]}" \
             --disk_cache=/home/runner/.cache/bazel \
             //common:kernel_aarch64/Image
