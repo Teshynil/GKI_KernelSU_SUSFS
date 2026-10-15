@@ -189,4 +189,12 @@ runs:
             sed -i 's/security_add_hooks(ksu_hooks, ARRAY_SIZE(ksu_hooks), "ksu");/#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 12, 0)\n    security_add_hooks(ksu_hooks, ARRAY_SIZE(ksu_hooks), "ksu");\n#endif/' "$f"
             echo "Softened security_add_hooks in $f for Linux 6.12+"
           fi
+          # In SukiSU-Ultra v4.2.1, upstream backported KernelSU #3871 task_work deferral
+          # to pkg_observer.c without defining TRACK_THRONE_FORCE_SYNCHRONOUS.
+          # track_throne(bool prune_only) expects false for full synchronous scan.
+          f_pkg="$d/manager/pkg_observer.c"
+          if [ -f "$f_pkg" ] && grep -q 'TRACK_THRONE_FORCE_SYNCHRONOUS' "$f_pkg"; then
+            sed -i 's/TRACK_THRONE_FORCE_SYNCHRONOUS/false/g' "$f_pkg"
+            echo "Fixed TRACK_THRONE_FORCE_SYNCHRONOUS in $f_pkg"
+          fi
         done
