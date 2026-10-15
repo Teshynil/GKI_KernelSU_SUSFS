@@ -173,3 +173,20 @@ runs:
         else
           echo "No susfs_compat gate present; nothing to do"
         fi
+
+    - name: Soften SukiSU-Ultra LSM hook for Linux 6.12+
+      if: inputs.flavor == 'sukisu-ultra'
+      shell: bash
+      working-directory: ${{ github.workspace }}/kernel
+      run: |
+        # In Linux 6.12 (Android 16), upstream LSM changed security_add_hooks()
+        # to require `const struct lsm_id *` instead of `const char *`.
+        # SukiSU-Ultra's pinned builtin branch still calls the old signature,
+        # which fails Clang -Werror on 6.12. Wrap it out on 6.12+.
+        for d in SukiSU-Ultra/kernel common/drivers/kernelsu drivers/kernelsu; do
+          f="$d/hook/lsm_hook.c"
+          if [ -f "$f" ] && grep -q 'security_add_hooks(ksu_hooks, ARRAY_SIZE(ksu_hooks), "ksu");' "$f"; then
+            sed -i 's/security_add_hooks(ksu_hooks, ARRAY_SIZE(ksu_hooks), "ksu");/#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 12, 0)\n    security_add_hooks(ksu_hooks, ARRAY_SIZE(ksu_hooks), "ksu");\n#endif/' "$f"
+            echo "Softened security_add_hooks in $f for Linux 6.12+"
+          fi
+        done
