@@ -197,4 +197,12 @@ runs:
             sed -i 's/TRACK_THRONE_FORCE_SYNCHRONOUS/false/g' "$f_pkg"
             echo "Fixed TRACK_THRONE_FORCE_SYNCHRONOUS in $f_pkg"
           fi
+          # In SukiSU-Ultra v4.2.1, Manager UAPI version was bumped to 5,
+          # but kernel-side header in kernel/include/uapi/supercall.h was left at 2.
+          # Manager requires managerUAPIVersion <= kernelUAPIVersion. Bump to 5.
+          f_sc="$d/include/uapi/supercall.h"
+          if [ -f "$f_sc" ] && grep -q 'KERNEL_SU_UAPI_VERSION' "$f_sc"; then
+            sed -i 's/DECLARE(__u32, KERNEL_SU_UAPI_VERSION, [0-9]*);/DECLARE(__u32, KERNEL_SU_UAPI_VERSION, 5);/g' "$f_sc"
+            echo "Bumped KERNEL_SU_UAPI_VERSION to 5 in $f_sc"
+          fi
         done
